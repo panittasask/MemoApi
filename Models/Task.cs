@@ -1,0 +1,16 @@
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace MemmoApi.Models
+{
+    public class Task:BaseEntity
+    {
+        [Key]
+        public string? Id { get; set; }
+        public Double? Duration { get; set; }
+        public string? ProjectName { get; set; }
+        public string? TaskName { get; set; }
+        public string? Description { get; set; }
+        public string? Status { get; set; }
+        public DateTime? StartDate { get; set; }
+    }
+}
