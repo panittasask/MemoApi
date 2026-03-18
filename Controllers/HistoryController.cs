@@ -89,6 +89,7 @@ namespace MemmoApi.Controllers
                 task.Duration = dto.Duration;
                 task.TaskName = dto.TaskName;
                 task.Status = dto.Status;
+                task.StartDate = dto.StartDate;
                 task.UpdateDate = DateTime.Now;
                 await _context.SaveChangesAsync();
 
