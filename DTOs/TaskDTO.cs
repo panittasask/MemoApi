@@ -1,4 +1,7 @@
-﻿namespace MemmoApi.DTOs
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
+
+namespace MemmoApi.DTOs
 {
     public class TaskDTO
     {
@@ -9,5 +12,12 @@
         public string? Description { get; set; }
         public string? Status { get; set; }
         public DateTime? StartDate { get; set; }
+    }
+    public class TaskRequest
+    {
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 10;
+        public DateTime? FilterDate { get; set; } = DateTime.Now;
+        public bool IsAllFilter { get; set; } = false;
     }
 }

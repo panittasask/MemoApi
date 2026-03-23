@@ -4,34 +4,84 @@ using MemmoApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Drawing.Printing;
 
 namespace MemmoApi.Controllers
 {
     [ApiController]
-    [AllowAnonymous]
+    [Authorize]
     [Route("[controller]")]
     public class HistoryController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        public HistoryController(ApplicationDbContext context)
+        private readonly IUserService _userService;
+        public HistoryController(ApplicationDbContext context, IUserService userService)
         {
             _context = context;
+            _userService = userService;
         }
-        [HttpGet]
-        public async Task<IActionResult> GetAllTask()
+        [HttpPost]
+        public async Task<IActionResult> GetAllTask(TaskRequest request)
         {
             try
             {
-                var task = await _context.Tasks.OrderByDescending(x => x.CreatedDate).ToListAsync();
-                return Ok(task);
-            }catch(Exception ex)
+                var id = _userService.GetMyId();
+                if (request.IsAllFilter == true)
+                {
+                    var query = _context.Tasks
+                            .Where(x => x.UserID == id)
+                            .OrderByDescending(x => x.CreatedDate);
+
+                    int totalItems = await query.CountAsync();
+
+                    int totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
+
+                    var tasks = await query
+                        .Skip((request.Page - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .ToListAsync();
+
+                    return Ok(new PaginatedList<Models.Task>
+                    {
+                        Items = tasks,
+                        TotalItems = totalItems,
+                        TotalPages = totalPages,
+                        PageIndex = request.Page
+                    });
+                }
+                else
+                {
+                    var query = _context.Tasks
+                        .Where(x => x.UserID == id && x.StartDate.HasValue && request.FilterDate.HasValue && x.StartDate.Value.Date == request.FilterDate.Value.Date)
+                        .OrderByDescending(x => x.CreatedDate);
+                    int totalItems = await query.CountAsync();
+
+                    int totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
+
+                    var tasks = await query
+                        .Skip((request.Page - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .ToListAsync();
+
+                    return Ok(new PaginatedList<Models.Task>
+                    {
+                        Items = tasks,
+                        TotalItems = totalItems,
+                        TotalPages = totalPages,
+                        PageIndex = request.Page
+                    });
+                }
+
+
+            }
+            catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
             }
         }
         [HttpPost]
         [Route("AddNew")]
-        public async Task<IActionResult>CreateTask(TaskDTO request)
+        public async Task<IActionResult> CreateTask(TaskDTO request)
         {
             if (!ModelState.IsValid)
             {
@@ -40,6 +90,7 @@ namespace MemmoApi.Controllers
             try
             {
                 var id = Guid.NewGuid().ToString();
+                var userId = _userService.GetMyId();
                 var newTask = new Models.Task
                 {
                     Id = id,
@@ -49,6 +100,7 @@ namespace MemmoApi.Controllers
                     Status = request.Status,
                     TaskName = request.TaskName,
                     StartDate = DateTime.Now,
+                    UserID = userId
                 };
                 _context.Tasks.Add(newTask);
                 await _context.SaveChangesAsync();
