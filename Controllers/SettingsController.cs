@@ -117,5 +117,55 @@ namespace MemmoApi.Controllers
                 Name = entity.Name
             });
         }
+
+        [HttpDelete]
+        [Route("settings/parent/{id}")]
+        public async Task<IActionResult> DeleteParentSetting(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest("Parent id is required");
+            }
+
+            var entity = await _context.SettingParents.FirstOrDefaultAsync(x => x.Id == id);
+            if (entity == null)
+            {
+                return NotFound("Parent setting not found");
+            }
+
+            _context.SettingParents.Remove(entity);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Parent setting deleted successfully",
+                id = entity.Id
+            });
+        }
+
+        [HttpDelete]
+        [Route("settings/child/{id}")]
+        public async Task<IActionResult> DeleteChildSetting(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest("Child id is required");
+            }
+
+            var entity = await _context.SettingChildren.FirstOrDefaultAsync(x => x.Id == id);
+            if (entity == null)
+            {
+                return NotFound("Child setting not found");
+            }
+
+            _context.SettingChildren.Remove(entity);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Child setting deleted successfully",
+                id = entity.Id
+            });
+        }
     }
 }

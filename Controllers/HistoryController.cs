@@ -152,5 +152,72 @@ namespace MemmoApi.Controllers
                 return StatusCode(500, $"อัปเดตไม่สำเร็จ: {ex.Message}");
             }
         }
+
+        [HttpDelete("task/{id}")]
+        public async Task<IActionResult> DeleteTask(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest("Task id is required");
+            }
+
+            try
+            {
+                var userId = _userService.GetMyId();
+                var task = await _context.Tasks.FirstOrDefaultAsync(x => x.Id == id && x.UserID == userId);
+
+                if (task == null)
+                {
+                    return NotFound("Task not found");
+                }
+
+                _context.Tasks.Remove(task);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "Task deleted successfully",
+                    id = task.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"ลบ Task ไม่สำเร็จ: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("history")]
+        public async Task<IActionResult> DeleteHistory([FromQuery] DateTime? filterDate = null)
+        {
+            try
+            {
+                var userId = _userService.GetMyId();
+                var query = _context.Tasks.Where(x => x.UserID == userId);
+
+                if (filterDate.HasValue)
+                {
+                    query = query.Where(x => x.StartDate.HasValue && x.StartDate.Value.Date == filterDate.Value.Date);
+                }
+
+                var tasks = await query.ToListAsync();
+                if (tasks.Count == 0)
+                {
+                    return NotFound("No history found");
+                }
+
+                _context.Tasks.RemoveRange(tasks);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    message = "History deleted successfully",
+                    deletedCount = tasks.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"ลบ History ไม่สำเร็จ: {ex.Message}");
+            }
+        }
     }
 }
