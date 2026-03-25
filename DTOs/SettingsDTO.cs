@@ -21,6 +21,19 @@ namespace MemmoApi.DTOs
         public string Name { get; set; } = string.Empty;
     }
 
+    public class CreateParentSettingRequest
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public class CreateChildSettingRequest
+    {
+        public string ParentId { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
     public class UpdateParentSettingRequest
     {
         public string Id { get; set; } = string.Empty;

@@ -49,8 +49,65 @@ namespace MemmoApi.Controllers
             return Ok(response);
         }
 
-        [HttpPut]
+        [HttpPost]
         [Route("settings/parent")]
+        public async Task<IActionResult> CreateParentSetting(CreateParentSettingRequest request)
+        {
+            var entity = new SettingParent
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Key = request.Key?.Trim().ToLowerInvariant() ?? string.Empty,
+                Name = request.Name?.Trim() ?? string.Empty
+            };
+
+            _context.SettingParents.Add(entity);
+            await _context.SaveChangesAsync();
+
+            return Ok(new DropdownParentItem
+            {
+                Id = entity.Id,
+                Key = entity.Key,
+                Name = entity.Name
+            });
+        }
+
+        [HttpPost]
+        [Route("settings/child")]
+        public async Task<IActionResult> CreateChildSetting(CreateChildSettingRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.ParentId))
+            {
+                return BadRequest("Parent id is required");
+            }
+
+            var parentExists = await _context.SettingParents.AnyAsync(x => x.Id == request.ParentId);
+            if (!parentExists)
+            {
+                return BadRequest("Parent id not found");
+            }
+
+            var entity = new SettingChild
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                ParentId = request.ParentId,
+                Key = request.Key?.Trim().ToLowerInvariant() ?? string.Empty,
+                Name = request.Name?.Trim() ?? string.Empty
+            };
+
+            _context.SettingChildren.Add(entity);
+            await _context.SaveChangesAsync();
+
+            return Ok(new DropdownChildItem
+            {
+                Id = entity.Id,
+                ParentId = entity.ParentId,
+                Key = entity.Key,
+                Name = entity.Name
+            });
+        }
+
+        [HttpPost]
+        [Route("settings/parent/update")]
         public async Task<IActionResult> UpdateParentSetting(UpdateParentSettingRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Id))
@@ -77,8 +134,8 @@ namespace MemmoApi.Controllers
             });
         }
 
-        [HttpPut]
-        [Route("settings/child")]
+        [HttpPost]
+        [Route("settings/child/update")]
         public async Task<IActionResult> UpdateChildSetting(UpdateChildSettingRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Id))
@@ -118,8 +175,8 @@ namespace MemmoApi.Controllers
             });
         }
 
-        [HttpDelete]
-        [Route("settings/parent/{id}")]
+        [HttpPost]
+        [Route("settings/parent/delete/{id}")]
         public async Task<IActionResult> DeleteParentSetting(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
@@ -143,8 +200,8 @@ namespace MemmoApi.Controllers
             });
         }
 
-        [HttpDelete]
-        [Route("settings/child/{id}")]
+        [HttpPost]
+        [Route("settings/child/delete/{id}")]
         public async Task<IActionResult> DeleteChildSetting(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
