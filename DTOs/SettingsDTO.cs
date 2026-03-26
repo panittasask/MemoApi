@@ -11,6 +11,7 @@ namespace MemmoApi.DTOs
         public string Id { get; set; } = string.Empty;
         public string Key { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
     }
 
     public class DropdownChildItem
@@ -19,12 +20,17 @@ namespace MemmoApi.DTOs
         public string ParentId { get; set; } = string.Empty;
         public string Key { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+
     }
 
     public class CreateParentSettingRequest
     {
         public string Key { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+
     }
 
     public class CreateChildSettingRequest
@@ -32,6 +38,9 @@ namespace MemmoApi.DTOs
         public string ParentId { get; set; } = string.Empty;
         public string Key { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+
     }
 
     public class UpdateParentSettingRequest
@@ -39,6 +48,8 @@ namespace MemmoApi.DTOs
         public string Id { get; set; } = string.Empty;
         public string Key { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+
     }
 
     public class UpdateChildSettingRequest
@@ -47,5 +58,8 @@ namespace MemmoApi.DTOs
         public string ParentId { get; set; } = string.Empty;
         public string Key { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+        public string UserId { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+
     }
 }

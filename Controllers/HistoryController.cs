@@ -185,39 +185,5 @@ namespace MemmoApi.Controllers
                 return StatusCode(500, $"ลบ Task ไม่สำเร็จ: {ex.Message}");
             }
         }
-
-        [HttpDelete("history")]
-        public async Task<IActionResult> DeleteHistory([FromQuery] DateTime? filterDate = null)
-        {
-            try
-            {
-                var userId = _userService.GetMyId();
-                var query = _context.Tasks.Where(x => x.UserID == userId);
-
-                if (filterDate.HasValue)
-                {
-                    query = query.Where(x => x.StartDate.HasValue && x.StartDate.Value.Date == filterDate.Value.Date);
-                }
-
-                var tasks = await query.ToListAsync();
-                if (tasks.Count == 0)
-                {
-                    return NotFound("No history found");
-                }
-
-                _context.Tasks.RemoveRange(tasks);
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "History deleted successfully",
-                    deletedCount = tasks.Count
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"ลบ History ไม่สำเร็จ: {ex.Message}");
-            }
-        }
     }
 }

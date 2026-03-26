@@ -4,6 +4,7 @@ using MemmoApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MemmoApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260325043558_AddSettingsTables")]
+    partial class AddSettingsTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,10 +29,6 @@ namespace MemmoApi.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Color")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -55,10 +54,6 @@ namespace MemmoApi.Migrations
                     b.Property<DateTime>("UpdateDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ParentId");
@@ -69,90 +64,74 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_STATUS_TODO",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "todo",
                             Name = "To Do",
                             ParentId = "SET_PARENT_STATUS",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_STATUS_INPROGRESS",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "inprogress",
                             Name = "In Progress",
                             ParentId = "SET_PARENT_STATUS",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_STATUS_DONE",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "done",
                             Name = "Done",
                             ParentId = "SET_PARENT_STATUS",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_STATUS_BLOCKED",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "blocked",
                             Name = "Blocked",
                             ParentId = "SET_PARENT_STATUS",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_PROJECT_INTERNAL",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "internal",
                             Name = "Internal",
                             ParentId = "SET_PARENT_PROJECT",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_PROJECT_CLIENT",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "client",
                             Name = "Client",
                             ParentId = "SET_PARENT_PROJECT",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_PROJECT_MAINTENANCE",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "maintenance",
                             Name = "Maintenance",
                             ParentId = "SET_PARENT_PROJECT",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
                             Id = "SET_CHILD_PROJECT_RESEARCH",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "research",
                             Name = "Research",
                             ParentId = "SET_PARENT_PROJECT",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         });
                 });
 
@@ -181,10 +160,6 @@ namespace MemmoApi.Migrations
                     b.Property<DateTime>("UpdateDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.ToTable("SettingParents");
@@ -196,8 +171,7 @@ namespace MemmoApi.Migrations
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "status",
                             Name = "Status",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         },
                         new
                         {
@@ -205,8 +179,7 @@ namespace MemmoApi.Migrations
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "project",
                             Name = "Project",
-                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            UserId = ""
+                            UpdateDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified)
                         });
                 });
 

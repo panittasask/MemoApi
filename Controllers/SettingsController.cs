@@ -13,10 +13,12 @@ namespace MemmoApi.Controllers
     public class SettingsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IUserService _userService;
 
-        public SettingsController(ApplicationDbContext context)
+        public SettingsController(ApplicationDbContext context, IUserService userService)
         {
             _context = context;
+            _userService = userService;
         }
 
         [HttpGet]
@@ -26,6 +28,7 @@ namespace MemmoApi.Controllers
             var response = new SettingsResponse
             {
                 Parents = await _context.SettingParents
+                    .Where(x => x.UserId == _userService.GetMyId())
                     .OrderBy(x => x.Name)
                     .Select(x => new DropdownParentItem
                     {
@@ -35,13 +38,15 @@ namespace MemmoApi.Controllers
                     })
                     .ToListAsync(),
                 Children = await _context.SettingChildren
+                    .Where(x => x.UserId == _userService.GetMyId())
                     .OrderBy(x => x.Name)
                     .Select(x => new DropdownChildItem
                     {
                         Id = x.Id,
                         ParentId = x.ParentId,
                         Key = x.Key,
-                        Name = x.Name
+                        Name = x.Name,
+                        Color = x.Color
                     })
                     .ToListAsync()
             };
@@ -57,7 +62,8 @@ namespace MemmoApi.Controllers
             {
                 Id = Guid.NewGuid().ToString("N"),
                 Key = request.Key?.Trim().ToLowerInvariant() ?? string.Empty,
-                Name = request.Name?.Trim() ?? string.Empty
+                Name = request.Name?.Trim() ?? string.Empty,
+                UserId = _userService.GetMyId(),
             };
 
             _context.SettingParents.Add(entity);
@@ -91,7 +97,8 @@ namespace MemmoApi.Controllers
                 Id = Guid.NewGuid().ToString("N"),
                 ParentId = request.ParentId,
                 Key = request.Key?.Trim().ToLowerInvariant() ?? string.Empty,
-                Name = request.Name?.Trim() ?? string.Empty
+                Name = request.Name?.Trim() ?? string.Empty,
+                UserId = _userService.GetMyId(),
             };
 
             _context.SettingChildren.Add(entity);
@@ -163,6 +170,7 @@ namespace MemmoApi.Controllers
             entity.ParentId = request.ParentId;
             entity.Key = request.Key?.Trim().ToLowerInvariant() ?? string.Empty;
             entity.Name = request.Name?.Trim() ?? string.Empty;
+            entity.Color = request.Color?.Trim() ?? string.Empty;
 
             await _context.SaveChangesAsync();
 

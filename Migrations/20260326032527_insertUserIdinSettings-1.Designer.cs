@@ -4,6 +4,7 @@ using MemmoApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MemmoApi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260326032527_insertUserIdinSettings-1")]
+    partial class insertUserIdinSettings1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -26,10 +29,6 @@ namespace MemmoApi.Migrations
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Color")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -69,7 +68,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_STATUS_TODO",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "todo",
                             Name = "To Do",
@@ -80,7 +78,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_STATUS_INPROGRESS",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "inprogress",
                             Name = "In Progress",
@@ -91,7 +88,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_STATUS_DONE",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "done",
                             Name = "Done",
@@ -102,7 +98,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_STATUS_BLOCKED",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "blocked",
                             Name = "Blocked",
@@ -113,7 +108,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_PROJECT_INTERNAL",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "internal",
                             Name = "Internal",
@@ -124,7 +118,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_PROJECT_CLIENT",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "client",
                             Name = "Client",
@@ -135,7 +128,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_PROJECT_MAINTENANCE",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "maintenance",
                             Name = "Maintenance",
@@ -146,7 +138,6 @@ namespace MemmoApi.Migrations
                         new
                         {
                             Id = "SET_CHILD_PROJECT_RESEARCH",
-                            Color = "",
                             CreatedDate = new DateTime(2026, 3, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Key = "research",
                             Name = "Research",
