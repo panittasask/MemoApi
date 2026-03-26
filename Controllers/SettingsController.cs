@@ -28,7 +28,6 @@ namespace MemmoApi.Controllers
             var response = new SettingsResponse
             {
                 Parents = await _context.SettingParents
-                    .Where(x => x.UserId == _userService.GetMyId())
                     .OrderBy(x => x.Name)
                     .Select(x => new DropdownParentItem
                     {
