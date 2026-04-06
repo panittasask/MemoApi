@@ -9,54 +9,9 @@ namespace MemmoApi.Controllers
     [ApiController]
     [Route("api/[controller]")]
     public class WorkflowController : ControllerBase
-            // Update Workflow
-            [HttpPut("{id}")]
-            public async Task<IActionResult> UpdateWorkflow(int id, [FromBody] WorkflowDTO dto)
-            {
-                var workflow = await _context.Workflows.FindAsync(id);
-                if (workflow == null) return NotFound();
-                workflow.Name = dto.Name;
-                workflow.Description = dto.Description;
-                await _context.SaveChangesAsync();
-                return NoContent();
-            }
-
-            // Update Node
-            [HttpPut("{workflowId}/nodes/{nodeId}")]
-            public async Task<IActionResult> UpdateNode(int workflowId, int nodeId, [FromBody] WorkflowNodeDTO dto)
-            {
-                var node = await _context.WorkflowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.WorkflowId == workflowId);
-                if (node == null) return NotFound();
-                node.NodeType = dto.NodeType;
-                node.TaskId = dto.TaskId;
-                node.CustomName = dto.CustomName;
-                await _context.SaveChangesAsync();
-                return NoContent();
-            }
-
-            // Delete Node
-            [HttpDelete("{workflowId}/nodes/{nodeId}")]
-            public async Task<IActionResult> DeleteNode(int workflowId, int nodeId)
-            {
-                var node = await _context.WorkflowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.WorkflowId == workflowId);
-                if (node == null) return NotFound();
-                _context.WorkflowNodes.Remove(node);
-                await _context.SaveChangesAsync();
-                return NoContent();
-            }
-
-            // Delete Edge
-            [HttpDelete("{workflowId}/edges/{edgeId}")]
-            public async Task<IActionResult> DeleteEdge(int workflowId, int edgeId)
-            {
-                var edge = await _context.WorkflowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.WorkflowId == workflowId);
-                if (edge == null) return NotFound();
-                _context.WorkflowEdges.Remove(edge);
-                await _context.SaveChangesAsync();
-                return NoContent();
-            }
     {
         private readonly ApplicationDbContext _context;
+
         public WorkflowController(ApplicationDbContext context)
         {
             _context = context;
@@ -161,12 +116,55 @@ namespace MemmoApi.Controllers
             return Created($"api/workflow/{workflowId}/edges/{edge.Id}", dto);
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateWorkflow(int id, [FromBody] WorkflowDTO dto)
+        {
+            var workflow = await _context.Workflows.FindAsync(id);
+            if (workflow == null) return NotFound();
+            workflow.Name = dto.Name;
+            workflow.Description = dto.Description;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpPut("{workflowId}/nodes/{nodeId}")]
+        public async Task<IActionResult> UpdateNode(int workflowId, int nodeId, [FromBody] WorkflowNodeDTO dto)
+        {
+            var node = await _context.WorkflowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.WorkflowId == workflowId);
+            if (node == null) return NotFound();
+            node.NodeType = dto.NodeType;
+            node.TaskId = dto.TaskId;
+            node.CustomName = dto.CustomName;
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteWorkflow(int id)
         {
             var workflow = await _context.Workflows.FindAsync(id);
             if (workflow == null) return NotFound();
             _context.Workflows.Remove(workflow);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{workflowId}/nodes/{nodeId}")]
+        public async Task<IActionResult> DeleteNode(int workflowId, int nodeId)
+        {
+            var node = await _context.WorkflowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.WorkflowId == workflowId);
+            if (node == null) return NotFound();
+            _context.WorkflowNodes.Remove(node);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        [HttpDelete("{workflowId}/edges/{edgeId}")]
+        public async Task<IActionResult> DeleteEdge(int workflowId, int edgeId)
+        {
+            var edge = await _context.WorkflowEdges.FirstOrDefaultAsync(e => e.Id == edgeId && e.WorkflowId == workflowId);
+            if (edge == null) return NotFound();
+            _context.WorkflowEdges.Remove(edge);
             await _context.SaveChangesAsync();
             return NoContent();
         }
