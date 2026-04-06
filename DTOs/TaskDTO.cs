@@ -20,5 +20,6 @@ namespace MemmoApi.DTOs
         public int PageSize { get; set; } = 10;
         public DateTime? FilterDate { get; set; } = DateTime.Now;
         public bool IsAllFilter { get; set; } = false;
+        public string? NameType { get; set; }
     }
 }

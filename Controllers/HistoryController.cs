@@ -29,6 +29,7 @@ namespace MemmoApi.Controllers
                 {
                     var query = _context.Tasks
                             .Where(x => x.UserID == id)
+                            .Where(x => request.NameType == null || x.NameType == request.NameType)
                             .OrderByDescending(x => x.CreatedDate);
 
                     int totalItems = await query.CountAsync();
@@ -52,6 +53,7 @@ namespace MemmoApi.Controllers
                 {
                     var query = _context.Tasks
                         .Where(x => x.UserID == id && x.StartDate.HasValue && request.FilterDate.HasValue && x.StartDate.Value.Date == request.FilterDate.Value.Date)
+                        .Where(x => request.NameType == null || x.NameType == request.NameType)
                         .OrderByDescending(x => x.CreatedDate);
                     int totalItems = await query.CountAsync();
 
