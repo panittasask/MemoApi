@@ -4,6 +4,7 @@ namespace MemmoApi.Models
 {
     public class Workflow : BaseEntity
     {
+        public int Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
         public ICollection<WorkflowNode> Nodes { get; set; }
@@ -12,6 +13,7 @@ namespace MemmoApi.Models
 
     public class WorkflowNode : BaseEntity
     {
+        public int Id { get; set; }
         public string NodeType { get; set; } // "Task" or "Custom"
         public int? TaskId { get; set; } // ถ้าเป็น Task จะมีค่า ถ้าเป็น Custom จะเป็น null
         public string CustomName { get; set; } // ถ้าเป็น Custom จะมีค่า
@@ -26,6 +28,7 @@ namespace MemmoApi.Models
 
     public class WorkflowEdge : BaseEntity
     {
+        public int Id { get; set; }
         public int FromNodeId { get; set; }
         public WorkflowNode FromNode { get; set; }
         public int ToNodeId { get; set; }

@@ -16,17 +16,6 @@ namespace MemmoApi.Data
         public DbSet<WorkflowEdge> WorkflowEdges { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
-                    modelBuilder.Entity<WorkflowNode>()
-                        .HasMany(n => n.OutgoingEdges)
-                        .WithOne(e => e.FromNode)
-                        .HasForeignKey(e => e.FromNodeId)
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    modelBuilder.Entity<WorkflowNode>()
-                        .HasMany(n => n.IncomingEdges)
-                        .WithOne(e => e.ToNode)
-                        .HasForeignKey(e => e.ToNodeId)
-                        .OnDelete(DeleteBehavior.Restrict);
         {
             base.OnModelCreating(modelBuilder);
 
@@ -35,6 +24,18 @@ namespace MemmoApi.Data
                 .WithOne(x => x.Parent)
                 .HasForeignKey(x => x.ParentId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<WorkflowNode>()
+                .HasMany(n => n.OutgoingEdges)
+                .WithOne(e => e.FromNode)
+                .HasForeignKey(e => e.FromNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<WorkflowNode>()
+                .HasMany(n => n.IncomingEdges)
+                .WithOne(e => e.ToNode)
+                .HasForeignKey(e => e.ToNodeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             var seedDate = new DateTime(2026, 3, 25);
             const string statusParentId = "SET_PARENT_STATUS";
