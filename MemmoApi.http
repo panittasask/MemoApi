@@ -4,3 +4,11 @@ GET {{MemmoApi_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+@token = REPLACE_WITH_JWT_TOKEN
+
+GET {{MemmoApi_HostAddress}}/Dashboard/summarytoday
+Authorization: Bearer {{token}}
+Accept: application/json
+
+###

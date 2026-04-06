@@ -7,6 +7,7 @@ namespace MemmoApi.DTOs
     {
         public string? Id { get; set; }
         public Double? Duration { get; set; }
+        public string? NameType { get; set; }
         public string? ProjectName { get; set; }
         public string? TaskName { get; set; }
         public string? Description { get; set; }

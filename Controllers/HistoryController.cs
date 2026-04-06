@@ -96,6 +96,7 @@ namespace MemmoApi.Controllers
                     Id = id,
                     Description = request.Description,
                     Duration = request.Duration,
+                    NameType = request.NameType,
                     ProjectName = request.ProjectName,
                     Status = request.Status,
                     TaskName = request.TaskName,
@@ -109,6 +110,7 @@ namespace MemmoApi.Controllers
                     Id = id,
                     Description = newTask.Description,
                     Duration = newTask.Duration,
+                    NameType = newTask.NameType,
                     ProjectName = newTask.ProjectName,
                     Status = newTask.Status,
                     TaskName = newTask.TaskName,
@@ -139,6 +141,7 @@ namespace MemmoApi.Controllers
                 task.ProjectName = dto.ProjectName;
                 task.Description = dto.Description;
                 task.Duration = dto.Duration;
+                task.NameType = dto.NameType;
                 task.TaskName = dto.TaskName;
                 task.Status = dto.Status;
                 task.StartDate = dto.StartDate;

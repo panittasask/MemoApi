@@ -1,0 +1,32 @@
+namespace MemmoApi.DTOs
+{
+    public class WorkflowDTO
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+    }
+
+    public class WorkflowNodeDTO
+    {
+        public int Id { get; set; }
+        public string NodeType { get; set; } // "Task" or "Custom"
+        public int? TaskId { get; set; }
+        public string CustomName { get; set; }
+        public List<int> ChildNodeIds { get; set; } // สำหรับ response: node ลูกทั้งหมด
+    }
+
+    public class WorkflowEdgeDTO
+    {
+        public int Id { get; set; }
+        public int FromNodeId { get; set; }
+        public int ToNodeId { get; set; }
+    }
+
+    public class WorkflowDetailDTO
+    {
+        public WorkflowDTO Workflow { get; set; }
+        public List<WorkflowNodeDTO> Nodes { get; set; }
+        public List<WorkflowEdgeDTO> Edges { get; set; }
+    }
+}

@@ -11,8 +11,22 @@ namespace MemmoApi.Data
         public DbSet<Models.Task> Tasks { get; set; }
         public DbSet<SettingParent> SettingParents { get; set; }
         public DbSet<SettingChild> SettingChildren { get; set; }
+        public DbSet<Workflow> Workflows { get; set; }
+        public DbSet<WorkflowNode> WorkflowNodes { get; set; }
+        public DbSet<WorkflowEdge> WorkflowEdges { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
+                    modelBuilder.Entity<WorkflowNode>()
+                        .HasMany(n => n.OutgoingEdges)
+                        .WithOne(e => e.FromNode)
+                        .HasForeignKey(e => e.FromNodeId)
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    modelBuilder.Entity<WorkflowNode>()
+                        .HasMany(n => n.IncomingEdges)
+                        .WithOne(e => e.ToNode)
+                        .HasForeignKey(e => e.ToNodeId)
+                        .OnDelete(DeleteBehavior.Restrict);
         {
             base.OnModelCreating(modelBuilder);
 

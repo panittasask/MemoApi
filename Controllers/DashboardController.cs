@@ -92,5 +92,43 @@ namespace MemmoApi.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpGet]
+        [Route("summarytoday")]
+        public async Task<IActionResult> SummaryToday()
+        {
+            try
+            {
+                var userId = _userService.GetMyId();
+                var today = DateTime.Today;
+
+                var tasks = await _context.Tasks
+                    .Where(x => x.UserID == userId && x.StartDate.HasValue && x.StartDate.Value.Date == today)
+                    .OrderByDescending(x => x.StartDate)
+                    .ToListAsync();
+
+                var response = new SummaryTodayResponseDTO
+                {
+                    Date = today,
+                    TotalTasks = tasks.Count,
+                    TotalHours = tasks.Sum(x => x.Duration ?? 0),
+                    Tasks = tasks.Select(x => new TodayTaskItemDTO
+                    {
+                        TaskId = x.Id,
+                        ProjectName = x.ProjectName,
+                        TaskName = x.TaskName,
+                        Status = x.Status,
+                        Duration = x.Duration ?? 0,
+                        CreatedAt = x.StartDate
+                    }).ToList()
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
     }
 }
