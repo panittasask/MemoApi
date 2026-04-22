@@ -93,14 +93,14 @@ namespace MemmoApi.Controllers
             }
         }
 
-        [HttpGet]
+        [HttpPost]
         [Route("summarytoday")]
-        public async Task<IActionResult> SummaryToday()
+        public async Task<IActionResult> SummaryToday(SummaryTodayResponseDTO item)
         {
             try
             {
                 var userId = _userService.GetMyId();
-                var today = DateTime.Today;
+                var today = item.Date;
 
                 var tasks = await _context.Tasks
                     .Where(x => x.UserID == userId && x.StartDate.HasValue && x.StartDate.Value.Date == today)
@@ -119,7 +119,8 @@ namespace MemmoApi.Controllers
                         TaskName = x.TaskName,
                         Status = x.Status,
                         Duration = x.Duration ?? 0,
-                        CreatedAt = x.StartDate
+                        CreatedAt = x.StartDate,
+                        Hyperlink = x.Hyperlink
                     }).ToList()
                 };
 

@@ -25,55 +25,63 @@ namespace MemmoApi.Controllers
             try
             {
                 var id = _userService.GetMyId();
-                if (request.IsAllFilter == true)
+
+                var query = _context.Tasks
+                    .Where(x => x.UserID == id);
+
+                //แยก normal task กับ focus task ให้ชัด
+                if (string.IsNullOrWhiteSpace(request.NameType))
                 {
-                    var query = _context.Tasks
-                            .Where(x => x.UserID == id)
-                            .Where(x => request.NameType == null || x.NameType == request.NameType)
-                            .OrderByDescending(x => x.CreatedDate);
-
-                    int totalItems = await query.CountAsync();
-
-                    int totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
-
-                    var tasks = await query
-                        .Skip((request.Page - 1) * request.PageSize)
-                        .Take(request.PageSize)
-                        .ToListAsync();
-
-                    return Ok(new PaginatedList<Models.Task>
-                    {
-                        Items = tasks,
-                        TotalItems = totalItems,
-                        TotalPages = totalPages,
-                        PageIndex = request.Page
-                    });
+                    //query = query.Where(x => x.NameType == null || x.NameType == "");
                 }
                 else
                 {
-                    var query = _context.Tasks
-                        .Where(x => x.UserID == id && x.StartDate.HasValue && request.FilterDate.HasValue && x.StartDate.Value.Date == request.FilterDate.Value.Date)
-                        .Where(x => request.NameType == null || x.NameType == request.NameType)
-                        .OrderByDescending(x => x.CreatedDate);
-                    int totalItems = await query.CountAsync();
-
-                    int totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
-
-                    var tasks = await query
-                        .Skip((request.Page - 1) * request.PageSize)
-                        .Take(request.PageSize)
-                        .ToListAsync();
-
-                    return Ok(new PaginatedList<Models.Task>
-                    {
-                        Items = tasks,
-                        TotalItems = totalItems,
-                        TotalPages = totalPages,
-                        PageIndex = request.Page
-                    });
+                    query = query.Where(x => x.NameType == request.NameType);
                 }
 
+                if (request.IsAllFilter != true)
+                {
+                    query = query.Where(x =>
+                        x.StartDate.HasValue &&
+                        request.FilterDate.HasValue &&
+                        x.StartDate.Value.Date == request.FilterDate.Value.Date);
+                }
+                if(!string.IsNullOrEmpty(request.Status))
+                {
+                    query = query.Where(x => x.Status == request.Status);
+                }
 
+                query = query.OrderByDescending(x => x.CreatedDate);
+
+                int totalItems = await query.CountAsync();
+                int totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
+
+                var tasks = await query
+                    .Skip((request.Page - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToListAsync();
+
+                // Map Tasks to TaskDTO to include hyperlink field
+                var taskDTOs = tasks.Select(t => new TaskDTO
+                {
+                    Id = t.Id,
+                    Duration = t.Duration,
+                    NameType = t.NameType,
+                    ProjectName = t.ProjectName,
+                    TaskName = t.TaskName,
+                    Description = t.Description,
+                    Status = t.Status,
+                    StartDate = t.StartDate,
+                    Hyperlink = t.Hyperlink
+                }).ToList();
+
+                return Ok(new PaginatedList<TaskDTO>
+                {
+                    Items = taskDTOs,
+                    TotalItems = totalItems,
+                    TotalPages = totalPages,
+                    PageIndex = request.Page
+                });
             }
             catch (Exception ex)
             {
@@ -102,7 +110,8 @@ namespace MemmoApi.Controllers
                     Status = request.Status,
                     TaskName = request.TaskName,
                     StartDate = DateTime.Now,
-                    UserID = userId
+                    UserID = userId,
+                    Hyperlink = request.Hyperlink
                 };
                 _context.Tasks.Add(newTask);
                 await _context.SaveChangesAsync();
@@ -116,6 +125,7 @@ namespace MemmoApi.Controllers
                     Status = newTask.Status,
                     TaskName = newTask.TaskName,
                     StartDate = DateTime.Now,
+                    Hyperlink = newTask.Hyperlink
                 };
                 return Ok(response);
             }
@@ -146,6 +156,7 @@ namespace MemmoApi.Controllers
                 task.TaskName = dto.TaskName;
                 task.Status = dto.Status;
                 task.StartDate = dto.StartDate;
+                task.Hyperlink = dto.Hyperlink;
                 task.UpdateDate = DateTime.Now;
                 await _context.SaveChangesAsync();
 

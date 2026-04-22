@@ -14,5 +14,6 @@ namespace MemmoApi.Models
         public string? Description { get; set; }
         public string? Status { get; set; }
         public DateTime? StartDate { get; set; }
+        public string? Hyperlink { get; set; }
     }
 }

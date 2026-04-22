@@ -16,5 +16,6 @@ namespace MemmoApi.DTOs
         public string? Status { get; set; }
         public double Duration { get; set; }
         public DateTime? CreatedAt { get; set; }
+        public string? Hyperlink { get; set; }
     }
 }

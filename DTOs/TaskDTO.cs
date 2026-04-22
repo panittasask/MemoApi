@@ -13,6 +13,7 @@ namespace MemmoApi.DTOs
         public string? Description { get; set; }
         public string? Status { get; set; }
         public DateTime? StartDate { get; set; }
+        public string? Hyperlink { get; set; }
     }
     public class TaskRequest
     {
@@ -21,5 +22,6 @@ namespace MemmoApi.DTOs
         public DateTime? FilterDate { get; set; } = DateTime.Now;
         public bool IsAllFilter { get; set; } = false;
         public string? NameType { get; set; }
+        public string? Status { get; set; }
     }
 }
