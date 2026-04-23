@@ -13,6 +13,7 @@ namespace MemmoApi.DTOs
         public string NodeType { get; set; } // "Task" or "Custom"
         public int? TaskId { get; set; }
         public string CustomName { get; set; }
+        public string ExternalTaskKey { get; set; }
         public List<int> ChildNodeIds { get; set; } // สำหรับ response: node ลูกทั้งหมด
     }
 
@@ -36,6 +37,7 @@ namespace MemmoApi.DTOs
         public string NodeType { get; set; } // "Task" or "Custom"
         public int? TaskId { get; set; }
         public string CustomName { get; set; }
+        public string ExternalTaskKey { get; set; }
     }
 
     public class WorkflowSyncEdgeDTO

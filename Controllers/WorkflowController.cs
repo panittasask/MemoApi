@@ -59,7 +59,8 @@ namespace MemmoApi.Controllers
                     Id = n.Id,
                     NodeType = n.NodeType,
                     TaskId = n.TaskId,
-                    CustomName = n.CustomName,
+                    CustomName = string.Equals(n.NodeType, "Custom", StringComparison.OrdinalIgnoreCase) ? n.CustomName : null,
+                    ExternalTaskKey = string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) && !n.TaskId.HasValue ? n.CustomName : null,
                     ChildNodeIds = nodeIdToChildIds.ContainsKey(n.Id) ? nodeIdToChildIds[n.Id] : new List<int>()
                 }).ToList(),
                 Edges = workflow.Edges.Select(e => new WorkflowEdgeDTO
@@ -89,11 +90,12 @@ namespace MemmoApi.Controllers
         [HttpPost("{workflowId}/nodes")]
         public async Task<ActionResult<WorkflowNodeDTO>> AddNode(int workflowId, [FromBody] WorkflowNodeDTO dto)
         {
+            var isTaskNode = string.Equals(dto.NodeType, "Task", StringComparison.OrdinalIgnoreCase);
             var node = new WorkflowNode
             {
                 NodeType = dto.NodeType,
                 TaskId = dto.TaskId,
-                CustomName = dto.CustomName,
+                CustomName = isTaskNode ? (dto.ExternalTaskKey ?? dto.CustomName) : dto.CustomName,
                 WorkflowId = workflowId
             };
             _context.WorkflowNodes.Add(node);
@@ -136,6 +138,19 @@ namespace MemmoApi.Controllers
                 .Where(n => string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) && n.TaskId.HasValue)
                 .GroupBy(n => n.TaskId!.Value)
                 .ToDictionary(g => g.Key, g => g.First().Id);
+            var existingTaskNodeByExternalIdMap = workflow.Nodes
+                .Where(n =>
+                    string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) &&
+                    !n.TaskId.HasValue &&
+                    !string.IsNullOrWhiteSpace(n.CustomName))
+                .GroupBy(n => n.CustomName!.Trim())
+                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+            var existingCustomNodeMap = workflow.Nodes
+                .Where(n =>
+                    string.Equals(n.NodeType, "Custom", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(n.CustomName))
+                .GroupBy(n => n.CustomName!.Trim())
+                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
             foreach (var node in dto.Nodes ?? new List<WorkflowSyncNodeDTO>())
             {
@@ -147,31 +162,85 @@ namespace MemmoApi.Controllers
                 }
 
                 var nodeType = (node.NodeType ?? string.Empty).Trim();
-                if (!string.Equals(nodeType, "Task", StringComparison.OrdinalIgnoreCase))
+                var isTaskNode = string.Equals(nodeType, "Task", StringComparison.OrdinalIgnoreCase);
+                var isCustomNode = string.Equals(nodeType, "Custom", StringComparison.OrdinalIgnoreCase);
+
+                if (!isTaskNode && !isCustomNode)
                 {
-                    result.Warnings.Add($"Skipped node '{clientNodeId}': only Task nodes are persisted.");
+                    result.Warnings.Add($"Skipped node '{clientNodeId}': unsupported node type '{nodeType}'.");
                     continue;
                 }
 
-                if (!node.TaskId.HasValue)
+                if (isCustomNode)
                 {
-                    result.Warnings.Add($"Skipped node '{clientNodeId}': taskId is required for Task node.");
+                    var customName = (node.CustomName ?? string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(customName))
+                    {
+                        customName = $"Custom-{clientNodeId}";
+                    }
+
+                    if (!existingCustomNodeMap.TryGetValue(customName, out var dbCustomNodeId))
+                    {
+                        var createdCustomNode = new WorkflowNode
+                        {
+                            NodeType = "Custom",
+                            TaskId = null,
+                            CustomName = customName,
+                            WorkflowId = workflowId
+                        };
+                        _context.WorkflowNodes.Add(createdCustomNode);
+                        await _context.SaveChangesAsync();
+                        dbCustomNodeId = createdCustomNode.Id;
+                        existingCustomNodeMap[customName] = dbCustomNodeId;
+                        result.CreatedNodes++;
+                    }
+
+                    clientNodeIdToDbNodeId[clientNodeId] = dbCustomNodeId;
                     continue;
                 }
 
-                if (!existingTaskNodeMap.TryGetValue(node.TaskId.Value, out var dbNodeId))
+                var externalTaskKey = (node.ExternalTaskKey ?? node.CustomName ?? string.Empty).Trim();
+
+                if (!node.TaskId.HasValue && string.IsNullOrWhiteSpace(externalTaskKey))
+                {
+                    result.Warnings.Add($"Skipped node '{clientNodeId}': taskId or externalTaskKey is required for Task node.");
+                    continue;
+                }
+
+                var hasNumericTaskId = node.TaskId.HasValue;
+                var externalTaskId = externalTaskKey;
+
+                var dbNodeId = 0;
+                var foundExistingNode = false;
+                if (hasNumericTaskId)
+                {
+                    foundExistingNode = existingTaskNodeMap.TryGetValue(node.TaskId!.Value, out dbNodeId);
+                }
+                else
+                {
+                    foundExistingNode = existingTaskNodeByExternalIdMap.TryGetValue(externalTaskId, out dbNodeId);
+                }
+
+                if (!foundExistingNode)
                 {
                     var createdNode = new WorkflowNode
                     {
                         NodeType = "Task",
-                        TaskId = node.TaskId,
-                        CustomName = null,
+                        TaskId = hasNumericTaskId ? node.TaskId : null,
+                        CustomName = hasNumericTaskId ? null : externalTaskId,
                         WorkflowId = workflowId
                     };
                     _context.WorkflowNodes.Add(createdNode);
                     await _context.SaveChangesAsync();
                     dbNodeId = createdNode.Id;
-                    existingTaskNodeMap[node.TaskId.Value] = dbNodeId;
+                    if (hasNumericTaskId)
+                    {
+                        existingTaskNodeMap[node.TaskId!.Value] = dbNodeId;
+                    }
+                    else
+                    {
+                        existingTaskNodeByExternalIdMap[externalTaskId] = dbNodeId;
+                    }
                     result.CreatedNodes++;
                 }
 
@@ -257,9 +326,10 @@ namespace MemmoApi.Controllers
         {
             var node = await _context.WorkflowNodes.FirstOrDefaultAsync(n => n.Id == nodeId && n.WorkflowId == workflowId);
             if (node == null) return NotFound();
+            var isTaskNode = string.Equals(dto.NodeType, "Task", StringComparison.OrdinalIgnoreCase);
             node.NodeType = dto.NodeType;
             node.TaskId = dto.TaskId;
-            node.CustomName = dto.CustomName;
+            node.CustomName = isTaskNode ? (dto.ExternalTaskKey ?? dto.CustomName) : dto.CustomName;
             await _context.SaveChangesAsync();
             return NoContent();
         }
