@@ -16,6 +16,8 @@ namespace MemmoApi.Models
         public int Id { get; set; }
         public string NodeType { get; set; } // "Task" or "Custom"
         public int? TaskId { get; set; } // ถ้าเป็น Task จะมีค่า ถ้าเป็น Custom จะเป็น null
+        public double PositionX { get; set; }
+        public double PositionY { get; set; }
         public string CustomName { get; set; } // ถ้าเป็น Custom จะมีค่า
         public int WorkflowId { get; set; }
         public Workflow Workflow { get; set; }

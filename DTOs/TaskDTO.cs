@@ -24,4 +24,9 @@ namespace MemmoApi.DTOs
         public string? NameType { get; set; }
         public string? Status { get; set; }
     }
+
+    public class TaskIdsRequest
+    {
+        public List<string> TaskIds { get; set; } = new();
+    }
 }

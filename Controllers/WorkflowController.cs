@@ -3,6 +3,7 @@ using MemmoApi.DTOs;
 using MemmoApi.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace MemmoApi.Controllers
 {
@@ -13,9 +14,83 @@ namespace MemmoApi.Controllers
     {
         private readonly ApplicationDbContext _context;
 
+        private sealed class CustomNodePayload
+        {
+            public string? Title { get; set; }
+            public string? Note { get; set; }
+        }
+
         public WorkflowController(ApplicationDbContext context)
         {
             _context = context;
+        }
+
+        private static string BuildCustomNodePayload(string? title, string? note)
+        {
+            var normalizedTitle = (title ?? string.Empty).Trim();
+            var normalizedNote = (note ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedTitle))
+            {
+                normalizedTitle = "Custom Box";
+            }
+
+            if (string.IsNullOrWhiteSpace(normalizedNote))
+            {
+                return normalizedTitle;
+            }
+
+            return JsonSerializer.Serialize(new CustomNodePayload
+            {
+                Title = normalizedTitle,
+                Note = normalizedNote
+            });
+        }
+
+        private static (string Title, string Note) ParseCustomNodePayload(string? rawValue)
+        {
+            var raw = (rawValue ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return ("Custom Box", string.Empty);
+            }
+
+            if (!raw.StartsWith("{", StringComparison.Ordinal))
+            {
+                return (raw, string.Empty);
+            }
+
+            try
+            {
+                var payload = JsonSerializer.Deserialize<CustomNodePayload>(raw);
+                var title = (payload?.Title ?? string.Empty).Trim();
+                var note = (payload?.Note ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(note))
+                {
+                    return (raw, string.Empty);
+                }
+
+                return (string.IsNullOrWhiteSpace(title) ? "Custom Box" : title, note);
+            }
+            catch
+            {
+                return (raw, string.Empty);
+            }
+        }
+
+        private static int? ParseClientNodeIdAsDbId(string clientNodeId, string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(clientNodeId))
+            {
+                return null;
+            }
+
+            if (!clientNodeId.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var suffix = clientNodeId.Substring(prefix.Length).Trim();
+            return int.TryParse(suffix, out var dbNodeId) ? dbNodeId : null;
         }
 
         [HttpGet]
@@ -41,12 +116,89 @@ namespace MemmoApi.Controllers
                 .FirstOrDefaultAsync(w => w.Id == id);
             if (workflow == null) return NotFound();
 
+            return Ok(BuildWorkflowDetailDto(workflow));
+        }
+
+        [HttpGet("by-task/{taskId}")]
+        public async Task<ActionResult<WorkflowDetailDTO>> GetWorkflowByTask(string taskId)
+        {
+            var normalizedTaskId = (taskId ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedTaskId))
+            {
+                return Ok(new
+                {
+                    found = false,
+                    message = "taskId is required",
+                    workflow = (WorkflowDTO?)null,
+                    nodes = new List<WorkflowNodeDTO>(),
+                    edges = new List<WorkflowEdgeDTO>()
+                });
+            }
+
+            var parsedNumericTaskId = int.TryParse(normalizedTaskId, out var numericTaskId)
+                ? numericTaskId
+                : (int?)null;
+
+            var workflow = await _context.Workflows
+                .Include(w => w.Nodes)
+                    .ThenInclude(n => n.OutgoingEdges)
+                .Include(w => w.Edges)
+                .Where(w => w.Nodes.Any(n =>
+                    n.NodeType == "Task" &&
+                    (
+                        (parsedNumericTaskId.HasValue && n.TaskId == parsedNumericTaskId.Value) ||
+                        (!n.TaskId.HasValue && n.CustomName == normalizedTaskId)
+                    )))
+                .OrderByDescending(w => w.UpdateDate)
+                .FirstOrDefaultAsync();
+
+            if (workflow == null)
+            {
+                var mockNode = new WorkflowNodeDTO
+                {
+                    Id = 0,
+                    NodeType = "Task",
+                    TaskId = parsedNumericTaskId,
+                    PositionX = 80,
+                    PositionY = 60,
+                    CustomName = null,
+                    CustomNote = null,
+                    ExternalTaskKey = parsedNumericTaskId.HasValue ? null : normalizedTaskId,
+                    ChildNodeIds = new List<int>()
+                };
+
+                return Ok(new
+                {
+                    found = false,
+                    isMock = true,
+                    message = "Workflow for task not found, returned mock node",
+                    workflow = (WorkflowDTO?)null,
+                    nodes = new List<WorkflowNodeDTO> { mockNode },
+                    edges = new List<WorkflowEdgeDTO>()
+                });
+            }
+
+            var dto = BuildWorkflowDetailDto(workflow);
+            return Ok(new
+            {
+                found = true,
+                isMock = false,
+                message = "Workflow found",
+                workflow = dto.Workflow,
+                nodes = dto.Nodes,
+                edges = dto.Edges
+            });
+        }
+
+        private WorkflowDetailDTO BuildWorkflowDetailDto(Workflow workflow)
+        {
+
             var nodeIdToChildIds = workflow.Nodes.ToDictionary(
                 n => n.Id,
                 n => n.OutgoingEdges?.Select(e => e.ToNodeId).ToList() ?? new List<int>()
             );
 
-            var dto = new WorkflowDetailDTO
+            return new WorkflowDetailDTO
             {
                 Workflow = new WorkflowDTO
                 {
@@ -54,14 +206,23 @@ namespace MemmoApi.Controllers
                     Name = workflow.Name,
                     Description = workflow.Description
                 },
-                Nodes = workflow.Nodes.Select(n => new WorkflowNodeDTO
+                Nodes = workflow.Nodes.Select(n =>
                 {
-                    Id = n.Id,
-                    NodeType = n.NodeType,
-                    TaskId = n.TaskId,
-                    CustomName = string.Equals(n.NodeType, "Custom", StringComparison.OrdinalIgnoreCase) ? n.CustomName : null,
-                    ExternalTaskKey = string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) && !n.TaskId.HasValue ? n.CustomName : null,
-                    ChildNodeIds = nodeIdToChildIds.ContainsKey(n.Id) ? nodeIdToChildIds[n.Id] : new List<int>()
+                    var isCustomNode = string.Equals(n.NodeType, "Custom", StringComparison.OrdinalIgnoreCase);
+                    var customPayload = ParseCustomNodePayload(n.CustomName);
+
+                    return new WorkflowNodeDTO
+                    {
+                        Id = n.Id,
+                        NodeType = n.NodeType,
+                        TaskId = n.TaskId,
+                        PositionX = n.PositionX,
+                        PositionY = n.PositionY,
+                        CustomName = isCustomNode ? customPayload.Title : null,
+                        CustomNote = isCustomNode ? customPayload.Note : null,
+                        ExternalTaskKey = string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) && !n.TaskId.HasValue ? n.CustomName : null,
+                        ChildNodeIds = nodeIdToChildIds.ContainsKey(n.Id) ? nodeIdToChildIds[n.Id] : new List<int>()
+                    };
                 }).ToList(),
                 Edges = workflow.Edges.Select(e => new WorkflowEdgeDTO
                 {
@@ -70,7 +231,6 @@ namespace MemmoApi.Controllers
                     ToNodeId = e.ToNodeId
                 }).ToList()
             };
-            return Ok(dto);
         }
 
         [HttpPost]
@@ -95,7 +255,11 @@ namespace MemmoApi.Controllers
             {
                 NodeType = dto.NodeType,
                 TaskId = dto.TaskId,
-                CustomName = isTaskNode ? (dto.ExternalTaskKey ?? dto.CustomName) : dto.CustomName,
+                PositionX = dto.PositionX,
+                PositionY = dto.PositionY,
+                CustomName = isTaskNode
+                    ? (dto.ExternalTaskKey ?? dto.CustomName)
+                    : BuildCustomNodePayload(dto.CustomName, dto.CustomNote),
                 WorkflowId = workflowId
             };
             _context.WorkflowNodes.Add(node);
@@ -134,6 +298,7 @@ namespace MemmoApi.Controllers
 
             var result = new WorkflowSyncResultDTO();
             var clientNodeIdToDbNodeId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var workingEdges = workflow.Edges.ToList();
             var existingTaskNodeMap = workflow.Nodes
                 .Where(n => string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) && n.TaskId.HasValue)
                 .GroupBy(n => n.TaskId!.Value)
@@ -173,26 +338,54 @@ namespace MemmoApi.Controllers
 
                 if (isCustomNode)
                 {
-                    var customName = (node.CustomName ?? string.Empty).Trim();
-                    if (string.IsNullOrWhiteSpace(customName))
+                    var customTitle = (node.CustomName ?? string.Empty).Trim();
+                    var customNote = (node.CustomNote ?? string.Empty).Trim();
+                    if (string.IsNullOrWhiteSpace(customTitle))
                     {
-                        customName = $"Custom-{clientNodeId}";
+                        customTitle = $"Custom-{clientNodeId}";
                     }
 
-                    if (!existingCustomNodeMap.TryGetValue(customName, out var dbCustomNodeId))
+                    var customPayload = BuildCustomNodePayload(customTitle, customNote);
+                    var linkedDbNodeId = ParseClientNodeIdAsDbId(clientNodeId, "custom-");
+                    if (linkedDbNodeId.HasValue)
+                    {
+                        var linkedNode = workflow.Nodes.FirstOrDefault(n =>
+                            n.Id == linkedDbNodeId.Value &&
+                            string.Equals(n.NodeType, "Custom", StringComparison.OrdinalIgnoreCase));
+                        if (linkedNode != null)
+                        {
+                            linkedNode.CustomName = customPayload;
+                            linkedNode.PositionX = node.PositionX;
+                            linkedNode.PositionY = node.PositionY;
+                            clientNodeIdToDbNodeId[clientNodeId] = linkedNode.Id;
+                            existingCustomNodeMap[customPayload] = linkedNode.Id;
+                            continue;
+                        }
+                    }
+
+                    if (!existingCustomNodeMap.TryGetValue(customPayload, out var dbCustomNodeId))
                     {
                         var createdCustomNode = new WorkflowNode
                         {
                             NodeType = "Custom",
                             TaskId = null,
-                            CustomName = customName,
+                            PositionX = node.PositionX,
+                            PositionY = node.PositionY,
+                            CustomName = customPayload,
                             WorkflowId = workflowId
                         };
                         _context.WorkflowNodes.Add(createdCustomNode);
                         await _context.SaveChangesAsync();
                         dbCustomNodeId = createdCustomNode.Id;
-                        existingCustomNodeMap[customName] = dbCustomNodeId;
+                        existingCustomNodeMap[customPayload] = dbCustomNodeId;
                         result.CreatedNodes++;
+                    }
+
+                    var existingCustomNode = workflow.Nodes.FirstOrDefault(n => n.Id == dbCustomNodeId);
+                    if (existingCustomNode != null)
+                    {
+                        existingCustomNode.PositionX = node.PositionX;
+                        existingCustomNode.PositionY = node.PositionY;
                     }
 
                     clientNodeIdToDbNodeId[clientNodeId] = dbCustomNodeId;
@@ -227,6 +420,8 @@ namespace MemmoApi.Controllers
                     {
                         NodeType = "Task",
                         TaskId = hasNumericTaskId ? node.TaskId : null,
+                        PositionX = node.PositionX,
+                        PositionY = node.PositionY,
                         CustomName = hasNumericTaskId ? null : externalTaskId,
                         WorkflowId = workflowId
                     };
@@ -244,7 +439,38 @@ namespace MemmoApi.Controllers
                     result.CreatedNodes++;
                 }
 
+                var existingNode = workflow.Nodes.FirstOrDefault(n => n.Id == dbNodeId);
+                if (existingNode != null)
+                {
+                    existingNode.PositionX = node.PositionX;
+                    existingNode.PositionY = node.PositionY;
+                }
+
                 clientNodeIdToDbNodeId[clientNodeId] = dbNodeId;
+            }
+
+            var requestedNodeIds = clientNodeIdToDbNodeId.Values.ToHashSet();
+            var nodesToDelete = workflow.Nodes
+                .Where(n => !requestedNodeIds.Contains(n.Id))
+                .ToList();
+
+            if (nodesToDelete.Count > 0)
+            {
+                var deletedNodeIds = nodesToDelete.Select(n => n.Id).ToHashSet();
+                var edgesLinkedToDeletedNodes = workingEdges
+                    .Where(e => deletedNodeIds.Contains(e.FromNodeId) || deletedNodeIds.Contains(e.ToNodeId))
+                    .ToList();
+
+                if (edgesLinkedToDeletedNodes.Count > 0)
+                {
+                    _context.WorkflowEdges.RemoveRange(edgesLinkedToDeletedNodes);
+                    result.DeletedEdges += edgesLinkedToDeletedNodes.Count;
+                    workingEdges = workingEdges
+                        .Where(e => !deletedNodeIds.Contains(e.FromNodeId) && !deletedNodeIds.Contains(e.ToNodeId))
+                        .ToList();
+                }
+
+                _context.WorkflowNodes.RemoveRange(nodesToDelete);
             }
 
             var requestedEdgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -272,18 +498,22 @@ namespace MemmoApi.Controllers
 
             if (dto.ReplaceExistingEdges)
             {
-                var edgesToDelete = workflow.Edges
+                var edgesToDelete = workingEdges
                     .Where(e => !requestedEdgeKeys.Contains($"{e.FromNodeId}-{e.ToNodeId}"))
                     .ToList();
 
                 if (edgesToDelete.Count > 0)
                 {
                     _context.WorkflowEdges.RemoveRange(edgesToDelete);
-                    result.DeletedEdges = edgesToDelete.Count;
+                    result.DeletedEdges += edgesToDelete.Count;
+                    var removedEdgeIds = edgesToDelete.Select(e => e.Id).ToHashSet();
+                    workingEdges = workingEdges
+                        .Where(e => !removedEdgeIds.Contains(e.Id))
+                        .ToList();
                 }
             }
 
-            var existingEdgeKeys = workflow.Edges
+            var existingEdgeKeys = workingEdges
                 .Select(e => $"{e.FromNodeId}-{e.ToNodeId}")
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -329,7 +559,11 @@ namespace MemmoApi.Controllers
             var isTaskNode = string.Equals(dto.NodeType, "Task", StringComparison.OrdinalIgnoreCase);
             node.NodeType = dto.NodeType;
             node.TaskId = dto.TaskId;
-            node.CustomName = isTaskNode ? (dto.ExternalTaskKey ?? dto.CustomName) : dto.CustomName;
+            node.PositionX = dto.PositionX;
+            node.PositionY = dto.PositionY;
+            node.CustomName = isTaskNode
+                ? (dto.ExternalTaskKey ?? dto.CustomName)
+                : BuildCustomNodePayload(dto.CustomName, dto.CustomNote);
             await _context.SaveChangesAsync();
             return NoContent();
         }

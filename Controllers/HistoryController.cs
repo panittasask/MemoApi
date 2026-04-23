@@ -200,5 +200,47 @@ namespace MemmoApi.Controllers
                 return StatusCode(500, $"ลบ Task ไม่สำเร็จ: {ex.Message}");
             }
         }
+
+        [HttpPost("ByIds")]
+        public async Task<IActionResult> GetTasksByIds([FromBody] TaskIdsRequest request)
+        {
+            try
+            {
+                var userId = _userService.GetMyId();
+                var normalizedIds = (request.TaskIds ?? new List<string>())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Select(id => id.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (normalizedIds.Count == 0)
+                {
+                    return Ok(new List<TaskDTO>());
+                }
+
+                var tasks = await _context.Tasks
+                    .Where(t => t.UserID == userId && t.Id != null && normalizedIds.Contains(t.Id))
+                    .ToListAsync();
+
+                var taskDTOs = tasks.Select(t => new TaskDTO
+                {
+                    Id = t.Id,
+                    Duration = t.Duration,
+                    NameType = t.NameType,
+                    ProjectName = t.ProjectName,
+                    TaskName = t.TaskName,
+                    Description = t.Description,
+                    Status = t.Status,
+                    StartDate = t.StartDate,
+                    Hyperlink = t.Hyperlink
+                }).ToList();
+
+                return Ok(taskDTOs);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }
