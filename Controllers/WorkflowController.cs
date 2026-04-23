@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MemmoApi.Controllers
 {
     [ApiController]
+    [Route("[controller]")]
     [Route("api/[controller]")]
     public class WorkflowController : ControllerBase
     {
@@ -114,6 +115,130 @@ namespace MemmoApi.Controllers
             await _context.SaveChangesAsync();
             dto.Id = edge.Id;
             return Created($"api/workflow/{workflowId}/edges/{edge.Id}", dto);
+        }
+
+        [HttpPost("{workflowId}/sync")]
+        public async Task<ActionResult<WorkflowSyncResultDTO>> SyncWorkflowGraph(int workflowId, [FromBody] WorkflowSyncRequestDTO dto)
+        {
+            var workflow = await _context.Workflows
+                .Include(w => w.Nodes)
+                .Include(w => w.Edges)
+                .FirstOrDefaultAsync(w => w.Id == workflowId);
+
+            if (workflow == null)
+            {
+                return NotFound(new { message = "Workflow not found" });
+            }
+
+            var result = new WorkflowSyncResultDTO();
+            var clientNodeIdToDbNodeId = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var existingTaskNodeMap = workflow.Nodes
+                .Where(n => string.Equals(n.NodeType, "Task", StringComparison.OrdinalIgnoreCase) && n.TaskId.HasValue)
+                .GroupBy(n => n.TaskId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().Id);
+
+            foreach (var node in dto.Nodes ?? new List<WorkflowSyncNodeDTO>())
+            {
+                var clientNodeId = (node.ClientNodeId ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(clientNodeId))
+                {
+                    result.Warnings.Add("Skipped node: clientNodeId is required.");
+                    continue;
+                }
+
+                var nodeType = (node.NodeType ?? string.Empty).Trim();
+                if (!string.Equals(nodeType, "Task", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Warnings.Add($"Skipped node '{clientNodeId}': only Task nodes are persisted.");
+                    continue;
+                }
+
+                if (!node.TaskId.HasValue)
+                {
+                    result.Warnings.Add($"Skipped node '{clientNodeId}': taskId is required for Task node.");
+                    continue;
+                }
+
+                if (!existingTaskNodeMap.TryGetValue(node.TaskId.Value, out var dbNodeId))
+                {
+                    var createdNode = new WorkflowNode
+                    {
+                        NodeType = "Task",
+                        TaskId = node.TaskId,
+                        CustomName = null,
+                        WorkflowId = workflowId
+                    };
+                    _context.WorkflowNodes.Add(createdNode);
+                    await _context.SaveChangesAsync();
+                    dbNodeId = createdNode.Id;
+                    existingTaskNodeMap[node.TaskId.Value] = dbNodeId;
+                    result.CreatedNodes++;
+                }
+
+                clientNodeIdToDbNodeId[clientNodeId] = dbNodeId;
+            }
+
+            var requestedEdgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var edge in dto.Edges ?? new List<WorkflowSyncEdgeDTO>())
+            {
+                var fromClientNodeId = (edge.FromClientNodeId ?? string.Empty).Trim();
+                var toClientNodeId = (edge.ToClientNodeId ?? string.Empty).Trim();
+
+                if (!clientNodeIdToDbNodeId.TryGetValue(fromClientNodeId, out var fromDbNodeId) ||
+                    !clientNodeIdToDbNodeId.TryGetValue(toClientNodeId, out var toDbNodeId))
+                {
+                    result.SkippedEdges++;
+                    continue;
+                }
+
+                if (fromDbNodeId == toDbNodeId)
+                {
+                    result.SkippedEdges++;
+                    result.Warnings.Add($"Skipped self-loop edge: {fromClientNodeId} -> {toClientNodeId}");
+                    continue;
+                }
+
+                requestedEdgeKeys.Add($"{fromDbNodeId}-{toDbNodeId}");
+            }
+
+            if (dto.ReplaceExistingEdges)
+            {
+                var edgesToDelete = workflow.Edges
+                    .Where(e => !requestedEdgeKeys.Contains($"{e.FromNodeId}-{e.ToNodeId}"))
+                    .ToList();
+
+                if (edgesToDelete.Count > 0)
+                {
+                    _context.WorkflowEdges.RemoveRange(edgesToDelete);
+                    result.DeletedEdges = edgesToDelete.Count;
+                }
+            }
+
+            var existingEdgeKeys = workflow.Edges
+                .Select(e => $"{e.FromNodeId}-{e.ToNodeId}")
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var edgeKey in requestedEdgeKeys)
+            {
+                if (existingEdgeKeys.Contains(edgeKey))
+                {
+                    continue;
+                }
+
+                var parts = edgeKey.Split('-');
+                var edge = new WorkflowEdge
+                {
+                    WorkflowId = workflowId,
+                    FromNodeId = int.Parse(parts[0]),
+                    ToNodeId = int.Parse(parts[1])
+                };
+                _context.WorkflowEdges.Add(edge);
+                result.CreatedEdges++;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
