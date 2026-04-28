@@ -2,6 +2,7 @@
 using MemmoApi.Data;
 using MemmoApi.DTOs;
 using MemmoApi.Models;
+using MemmoApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,11 +21,15 @@ namespace MemmoApi.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
-        public AuthController(ApplicationDbContext context, IConfiguration configuration)
+        private readonly IEmailService _emailService;
+
+        public AuthController(ApplicationDbContext context, IConfiguration configuration, IEmailService emailService)
         {
             _context = context;
             _configuration = configuration;
+            _emailService = emailService;
         }
+
         [HttpPost]
         [Route("register")]
         public async Task<IActionResult> Register(RegisterDTO dto)
@@ -33,16 +38,83 @@ namespace MemmoApi.Controllers
             {
                 return BadRequest("This Username already Exist");
             }
+
+            if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+            {
+                return BadRequest("This Email already Exist");
+            }
+
+            var emailVerificationEnabled = _configuration.GetValue<bool>("EmailVerification:Enabled");
+
+            var verificationToken = emailVerificationEnabled
+                ? Convert.ToHexString(RandomNumberGenerator.GetBytes(32))
+                : null;
+
             var user = new User
             {
                 Id = Guid.NewGuid().ToString(),
-                Name = dto.UserName,
+                Name = dto.Name,
                 UserName = dto.UserName,
                 Email = dto.Email,
-                Password = BCrypt.Net.BCrypt.HashPassword(dto.Password)
+                Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                IsEmailVerified = !emailVerificationEnabled,
+                EmailVerificationToken = verificationToken,
+                EmailVerificationTokenExpiry = emailVerificationEnabled ? DateTime.UtcNow.AddHours(24) : null
             };
+
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
+
+            if (!emailVerificationEnabled)
+            {
+                return Ok(new
+                {
+                    emailVerificationRequired = false,
+                    message = "Registration successful. You can log in now."
+                });
+            }
+
+            var frontendBaseUrl = _configuration["FrontendBaseUrl"] ?? "http://localhost:4200";
+            var verificationLink = $"{frontendBaseUrl}/verify-email?token={verificationToken}";
+
+            try
+            {
+                await _emailService.SendEmailVerificationAsync(user.Email!, user.Name!, verificationLink);
+            }
+            catch (Exception ex)
+            {
+                // Email server unavailable: keep account pending so user can request resend later.
+                return StatusCode(500, new
+                {
+                    emailVerificationRequired = true,
+                    message = "Registration saved, but the verification email could not be sent. Please contact support or try again later.",
+                    detail = ex.Message
+                });
+            }
+
+            return Ok(new
+            {
+                emailVerificationRequired = true,
+                message = "Registration successful. Please check your email to verify your account."
+            });
+        }
+
+        [HttpPost]
+        [Route("login")]
+        public async Task<IActionResult> Login(LoginDTO login)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserName == login.UserName);
+            if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.Password))
+            {
+                return Unauthorized("Username or Password Invalid");
+            }
+
+            var emailVerificationEnabled = _configuration.GetValue<bool>("EmailVerification:Enabled");
+            if (emailVerificationEnabled && !user.IsEmailVerified)
+            {
+                return Unauthorized("Please verify your email before logging in.");
+            }
+
             var token = GenerateToken(user, "access", TimeSpan.FromHours(3));
             var refreshToken = GenerateToken(user, "refresh", TimeSpan.FromDays(7));
             return Ok(new
@@ -52,22 +124,40 @@ namespace MemmoApi.Controllers
                 message = "Login Success"
             });
         }
-        [HttpPost]
-        [Route("login")]
-        public async Task<IActionResult> Login(LoginDTO login)
+
+        [HttpGet]
+        [Route("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromQuery] string token)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u=> u.UserName == login.UserName);
-            if(user == null || !BCrypt.Net.BCrypt.Verify(login.Password,user.Password))
+            if (string.IsNullOrWhiteSpace(token))
             {
-                return Unauthorized("Username or Password Invalid");
+                return BadRequest("Verification token is required.");
             }
-            var token = GenerateToken(user, "access", TimeSpan.FromHours(3));
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.EmailVerificationToken == token);
+            if (user == null)
+            {
+                return BadRequest("Invalid verification token.");
+            }
+
+            if (user.EmailVerificationTokenExpiry < DateTime.UtcNow)
+            {
+                return BadRequest("Verification token has expired.");
+            }
+
+            user.IsEmailVerified = true;
+            user.EmailVerificationToken = null;
+            user.EmailVerificationTokenExpiry = null;
+            await _context.SaveChangesAsync();
+
+            var accessToken = GenerateToken(user, "access", TimeSpan.FromHours(3));
             var refreshToken = GenerateToken(user, "refresh", TimeSpan.FromDays(7));
+
             return Ok(new
             {
-                token = token,
+                token = accessToken,
                 refreshToken = refreshToken,
-                message = "Login Success"
+                message = "Email verified successfully."
             });
         }
 

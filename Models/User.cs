@@ -16,5 +16,8 @@ namespace MemmoApi.Models
         public string? Password { get; set; }
         [Required]
         public string? Email { get; set; }
+        public bool IsEmailVerified { get; set; } = false;
+        public string? EmailVerificationToken { get; set; }
+        public DateTime? EmailVerificationTokenExpiry { get; set; }
     }
 }

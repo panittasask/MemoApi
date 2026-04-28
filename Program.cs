@@ -1,5 +1,6 @@
 using MemmoApi.Data;
 using MemmoApi.Middleware;
+using MemmoApi.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Configuration;
 
@@ -30,7 +31,11 @@ builder.Services.AddCors(options =>
 });
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 var app = builder.Build();
+
+// Global error logging middleware (must be first to catch all exceptions)
+app.UseMiddleware<ErrorLoggingMiddleware>();
 
 app.UseSwagger();
 app.UseSwaggerUI();

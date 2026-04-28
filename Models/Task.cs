@@ -15,5 +15,6 @@ namespace MemmoApi.Models
         public string? Status { get; set; }
         public DateTime? StartDate { get; set; }
         public string? Hyperlink { get; set; }
+        public string? TaskGroupId { get; set; }
     }
 }
