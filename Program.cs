@@ -25,7 +25,18 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("MyCorsPolicy", policy =>
     {
-        policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        policy.SetIsOriginAllowed(origin =>
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+
+            return origin.EndsWith(".vercel.app") ||
+                   origin.Contains("napatsai.com") ||
+                   origin.Contains("github.dev") ||
+                   origin.Contains("localhost");
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials(); // ต้องมีตัวนี้เพราะคุณใช้ JWT/Auth
     });
 });
 builder.Services.AddHttpContextAccessor();
