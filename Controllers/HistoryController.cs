@@ -72,7 +72,8 @@ namespace MemmoApi.Controllers
                     Description = t.Description,
                     Status = t.Status,
                     StartDate = t.StartDate,
-                    Hyperlink = t.Hyperlink
+                    Hyperlink = t.Hyperlink,
+                    TaskGroupId = t.TaskGroupId ?? t.Id
                 }).ToList();
 
                 return Ok(new PaginatedList<TaskDTO>
@@ -100,6 +101,8 @@ namespace MemmoApi.Controllers
             {
                 var id = Guid.NewGuid().ToString();
                 var userId = _userService.GetMyId();
+                // ถ้าเป็นการ clone จากงานเดิม ให้ใช้ TaskGroupId เดิม; ถ้าเป็นงานใหม่ ใช้ id ของตัวเองเป็น TaskGroupId
+                var taskGroupId = string.IsNullOrWhiteSpace(request.TaskGroupId) ? id : request.TaskGroupId!.Trim();
                 var newTask = new Models.Task
                 {
                     Id = id,
@@ -111,7 +114,8 @@ namespace MemmoApi.Controllers
                     TaskName = request.TaskName,
                     StartDate = DateTime.Now,
                     UserID = userId,
-                    Hyperlink = request.Hyperlink
+                    Hyperlink = request.Hyperlink,
+                    TaskGroupId = taskGroupId
                 };
                 _context.Tasks.Add(newTask);
                 await _context.SaveChangesAsync();
@@ -125,7 +129,8 @@ namespace MemmoApi.Controllers
                     Status = newTask.Status,
                     TaskName = newTask.TaskName,
                     StartDate = DateTime.Now,
-                    Hyperlink = newTask.Hyperlink
+                    Hyperlink = newTask.Hyperlink,
+                    TaskGroupId = newTask.TaskGroupId
                 };
                 return Ok(response);
             }
@@ -232,7 +237,8 @@ namespace MemmoApi.Controllers
                     Description = t.Description,
                     Status = t.Status,
                     StartDate = t.StartDate,
-                    Hyperlink = t.Hyperlink
+                    Hyperlink = t.Hyperlink,
+                    TaskGroupId = t.TaskGroupId ?? t.Id
                 }).ToList();
 
                 return Ok(taskDTOs);

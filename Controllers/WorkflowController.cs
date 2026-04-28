@@ -139,6 +139,27 @@ namespace MemmoApi.Controllers
                 ? numericTaskId
                 : (int?)null;
 
+            // หา TaskGroupId ของ task นี้ และเก็บทุก task ID ที่อยู่ในกลุ่มเดียวกัน
+            // เพื่อให้ task ที่ถูก clone จากวันอื่น เห็น workflow เดียวกัน
+            var groupTaskIds = new List<string> { normalizedTaskId };
+            var sourceTask = await _context.Tasks
+                .FirstOrDefaultAsync(t => t.Id == normalizedTaskId);
+            string? groupKey = sourceTask?.TaskGroupId ?? sourceTask?.Id;
+
+            if (!string.IsNullOrWhiteSpace(groupKey))
+            {
+                var siblingIds = await _context.Tasks
+                    .Where(t => (t.TaskGroupId == groupKey) || (t.Id == groupKey))
+                    .Select(t => t.Id!)
+                    .ToListAsync();
+
+                groupTaskIds = siblingIds
+                    .Concat(new[] { normalizedTaskId, groupKey })
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
             var workflow = await _context.Workflows
                 .Include(w => w.Nodes)
                     .ThenInclude(n => n.OutgoingEdges)
@@ -147,7 +168,7 @@ namespace MemmoApi.Controllers
                     n.NodeType == "Task" &&
                     (
                         (parsedNumericTaskId.HasValue && n.TaskId == parsedNumericTaskId.Value) ||
-                        (!n.TaskId.HasValue && n.CustomName == normalizedTaskId)
+                        (!n.TaskId.HasValue && n.CustomName != null && groupTaskIds.Contains(n.CustomName))
                     )))
                 .OrderByDescending(w => w.UpdateDate)
                 .FirstOrDefaultAsync();
