@@ -14,6 +14,7 @@ namespace MemmoApi.Data
         public DbSet<Workflow> Workflows { get; set; }
         public DbSet<WorkflowNode> WorkflowNodes { get; set; }
         public DbSet<WorkflowEdge> WorkflowEdges { get; set; }
+        public DbSet<WorkNote> WorkNotes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
