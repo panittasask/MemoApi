@@ -30,12 +30,12 @@ builder.Services.AddCors(options =>
         {
             if (string.IsNullOrWhiteSpace(origin)) return false;
 
-            // เพิ่มเงื่อนไขให้ครอบคลุม Domain ของ MonsterASP
+        
             return origin.EndsWith(".vercel.app") ||
                    origin.Contains("napatsai.com") ||
                    origin.Contains("github.dev") ||
                    origin.Contains("localhost") ||
-                   origin.Contains("premiumasp.net"); // <--- เพิ่มบรรทัดนี้
+                   origin.Contains("premiumasp.net"); 
         })
         .AllowAnyHeader()
         .AllowAnyMethod()
