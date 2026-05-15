@@ -13,8 +13,10 @@ namespace MemmoApi.DTOs
         public string? Description { get; set; }
         public string? Status { get; set; }
         public DateTime? StartDate { get; set; }
+        public string? StartTime { get; set; }
         public string? Hyperlink { get; set; }
         public string? TaskGroupId { get; set; }
+        public int? SortOrder { get; set; }
     }
     public class TaskRequest
     {
@@ -29,5 +31,16 @@ namespace MemmoApi.DTOs
     public class TaskIdsRequest
     {
         public List<string> TaskIds { get; set; } = new();
+    }
+
+    public class TaskReorderItem
+    {
+        public string? Id { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class TaskReorderRequest
+    {
+        public List<TaskReorderItem> Items { get; set; } = new();
     }
 }

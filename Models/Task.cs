@@ -2,7 +2,7 @@
 
 namespace MemmoApi.Models
 {
-    public class Task:BaseEntity
+    public class Task : BaseEntity
     {
         [Key]
         public string? Id { get; set; }
@@ -14,7 +14,9 @@ namespace MemmoApi.Models
         public string? Description { get; set; }
         public string? Status { get; set; }
         public DateTime? StartDate { get; set; }
+        public string? StartTime { get; set; }
         public string? Hyperlink { get; set; }
         public string? TaskGroupId { get; set; }
+        public int? SortOrder { get; set; }
     }
 }

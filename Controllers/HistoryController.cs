@@ -26,6 +26,27 @@ namespace MemmoApi.Controllers
             {
                 var id = _userService.GetMyId();
 
+                // One-time backfill: ensure every existing task of this user has a SortOrder
+                // so that reordering / pagination produces a stable ordering across pages.
+                var hasNullOrder = await _context.Tasks
+                    .AnyAsync(x => x.UserID == id && x.SortOrder == null);
+                if (hasNullOrder)
+                {
+                    var maxOrder = await _context.Tasks
+                        .Where(x => x.UserID == id && x.SortOrder != null)
+                        .MaxAsync(x => (int?)x.SortOrder) ?? -1;
+                    var nullTasks = await _context.Tasks
+                        .Where(x => x.UserID == id && x.SortOrder == null)
+                        .OrderByDescending(x => x.CreatedDate)
+                        .ToListAsync();
+                    var next = maxOrder + 1;
+                    foreach (var t in nullTasks)
+                    {
+                        t.SortOrder = next++;
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
                 var query = _context.Tasks
                     .Where(x => x.UserID == id);
 
@@ -46,12 +67,13 @@ namespace MemmoApi.Controllers
                         request.FilterDate.HasValue &&
                         x.StartDate.Value.Date == request.FilterDate.Value.Date);
                 }
-                if(!string.IsNullOrEmpty(request.Status))
+                if (!string.IsNullOrEmpty(request.Status))
                 {
                     query = query.Where(x => x.Status == request.Status);
                 }
 
-                query = query.OrderByDescending(x => x.CreatedDate);
+                query = query.OrderBy(x => x.SortOrder ?? int.MaxValue)
+                             .ThenByDescending(x => x.CreatedDate);
 
                 int totalItems = await query.CountAsync();
                 int totalPages = (int)Math.Ceiling(totalItems / (double)request.PageSize);
@@ -72,8 +94,10 @@ namespace MemmoApi.Controllers
                     Description = t.Description,
                     Status = t.Status,
                     StartDate = t.StartDate,
+                    StartTime = t.StartTime,
                     Hyperlink = t.Hyperlink,
-                    TaskGroupId = t.TaskGroupId ?? t.Id
+                    TaskGroupId = t.TaskGroupId ?? t.Id,
+                    SortOrder = t.SortOrder
                 }).ToList();
 
                 return Ok(new PaginatedList<TaskDTO>
@@ -103,6 +127,15 @@ namespace MemmoApi.Controllers
                 var userId = _userService.GetMyId();
                 // ถ้าเป็นการ clone จากงานเดิม ให้ใช้ TaskGroupId เดิม; ถ้าเป็นงานใหม่ ใช้ id ของตัวเองเป็น TaskGroupId
                 var taskGroupId = string.IsNullOrWhiteSpace(request.TaskGroupId) ? id : request.TaskGroupId!.Trim();
+                // ถ้าไม่มี SortOrder ส่งมา ให้ตั้งเป็น max+1 ของ user เพื่อให้ไปอยู่ท้ายสุด
+                var sortOrder = request.SortOrder;
+                if (!sortOrder.HasValue)
+                {
+                    var maxOrder = await _context.Tasks
+                        .Where(x => x.UserID == userId && x.SortOrder != null)
+                        .MaxAsync(x => (int?)x.SortOrder) ?? -1;
+                    sortOrder = maxOrder + 1;
+                }
                 var newTask = new Models.Task
                 {
                     Id = id,
@@ -113,9 +146,11 @@ namespace MemmoApi.Controllers
                     Status = request.Status,
                     TaskName = request.TaskName,
                     StartDate = DateTime.Now,
+                    StartTime = request.StartTime,
                     UserID = userId,
                     Hyperlink = request.Hyperlink,
-                    TaskGroupId = taskGroupId
+                    TaskGroupId = taskGroupId,
+                    SortOrder = sortOrder
                 };
                 _context.Tasks.Add(newTask);
                 await _context.SaveChangesAsync();
@@ -129,8 +164,10 @@ namespace MemmoApi.Controllers
                     Status = newTask.Status,
                     TaskName = newTask.TaskName,
                     StartDate = DateTime.Now,
+                    StartTime = newTask.StartTime,
                     Hyperlink = newTask.Hyperlink,
-                    TaskGroupId = newTask.TaskGroupId
+                    TaskGroupId = newTask.TaskGroupId,
+                    SortOrder = newTask.SortOrder
                 };
                 return Ok(response);
             }
@@ -161,7 +198,12 @@ namespace MemmoApi.Controllers
                 task.TaskName = dto.TaskName;
                 task.Status = dto.Status;
                 task.StartDate = dto.StartDate;
+                task.StartTime = dto.StartTime;
                 task.Hyperlink = dto.Hyperlink;
+                if (dto.SortOrder.HasValue)
+                {
+                    task.SortOrder = dto.SortOrder;
+                }
                 task.UpdateDate = DateTime.Now;
                 await _context.SaveChangesAsync();
 
@@ -237,8 +279,10 @@ namespace MemmoApi.Controllers
                     Description = t.Description,
                     Status = t.Status,
                     StartDate = t.StartDate,
+                    StartTime = t.StartTime,
                     Hyperlink = t.Hyperlink,
-                    TaskGroupId = t.TaskGroupId ?? t.Id
+                    TaskGroupId = t.TaskGroupId ?? t.Id,
+                    SortOrder = t.SortOrder
                 }).ToList();
 
                 return Ok(taskDTOs);
@@ -246,6 +290,54 @@ namespace MemmoApi.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
+            }
+        }
+        [HttpPost("Reorder")]
+        public async Task<IActionResult> ReorderTasks([FromBody] TaskReorderRequest request)
+        {
+            if (request == null || request.Items == null || request.Items.Count == 0)
+            {
+                return BadRequest("No items to reorder");
+            }
+
+            try
+            {
+                var userId = _userService.GetMyId();
+                var ids = request.Items
+                    .Where(i => !string.IsNullOrWhiteSpace(i.Id))
+                    .Select(i => i.Id!.Trim())
+                    .Distinct()
+                    .ToList();
+
+                if (ids.Count == 0)
+                {
+                    return BadRequest("No valid ids");
+                }
+
+                var tasks = await _context.Tasks
+                    .Where(t => t.UserID == userId && t.Id != null && ids.Contains(t.Id))
+                    .ToListAsync();
+
+                var orderMap = request.Items
+                    .Where(i => !string.IsNullOrWhiteSpace(i.Id))
+                    .GroupBy(i => i.Id!.Trim())
+                    .ToDictionary(g => g.Key, g => g.Last().SortOrder);
+
+                foreach (var t in tasks)
+                {
+                    if (t.Id != null && orderMap.TryGetValue(t.Id, out var order))
+                    {
+                        t.SortOrder = order;
+                        t.UpdateDate = DateTime.Now;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Reordered", count = tasks.Count });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Reorder failed: {ex.Message}");
             }
         }
     }
