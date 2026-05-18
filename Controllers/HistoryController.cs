@@ -127,15 +127,11 @@ namespace MemmoApi.Controllers
                 var userId = _userService.GetMyId();
                 // ถ้าเป็นการ clone จากงานเดิม ให้ใช้ TaskGroupId เดิม; ถ้าเป็นงานใหม่ ใช้ id ของตัวเองเป็น TaskGroupId
                 var taskGroupId = string.IsNullOrWhiteSpace(request.TaskGroupId) ? id : request.TaskGroupId!.Trim();
-                // ถ้าไม่มี SortOrder ส่งมา ให้ตั้งเป็น max+1 ของ user เพื่อให้ไปอยู่ท้ายสุด
-                var sortOrder = request.SortOrder;
-                if (!sortOrder.HasValue)
-                {
-                    var maxOrder = await _context.Tasks
-                        .Where(x => x.UserID == userId && x.SortOrder != null)
-                        .MaxAsync(x => (int?)x.SortOrder) ?? -1;
-                    sortOrder = maxOrder + 1;
-                }
+                // งานที่สร้างใหม่ต้องอยู่ลำดับแรกเสมอ (SortOrder = 1) โดยเลื่อนงานเดิมของ user คนนี้ลงไป 1 ลำดับ
+                await _context.Tasks
+                    .Where(x => x.UserID == userId && x.SortOrder != null)
+                    .ExecuteUpdateAsync(s => s.SetProperty(x => x.SortOrder, x => x.SortOrder + 1));
+                var sortOrder = 1;
                 var newTask = new Models.Task
                 {
                     Id = id,
